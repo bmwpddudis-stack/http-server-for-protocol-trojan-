@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔒 HTTPS SNI Server — Мультидоменный сервер на Python</title>
+  <meta name="description" content="Асинхронный HTTPS-сервер с поддержкой SNI для обслуживания нескольких доменов с разными сертификатами на одном порту">
+  <style>
+    /* ===== БАЗОВЫЕ СТИЛИ ===== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    :root {
+      --primary: #667eea;
+      --secondary: #764ba2;
+      --accent: #27ae60;
+      --warning: #f39c12;
+      --danger: #e74c3c;
+      --dark: #2c3e50;
+      --light: #f8f9fa;
+      --gray: #7f8c8d;
+      --code-bg: #1e1e1e;
+      --code-text: #d4d4d4;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: var(--dark);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      min-height: 100vh;
+    }
+    
+    /* ===== КОНТЕЙНЕР ===== */
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    /* ===== ШАПКА ===== */
+    header {
+      text-align: center;
+      padding: 60px 20px 40px;
+      color: white;
+    }
+    
+    header h1 {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+      display: flex;      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    header p {
+      font-size: 1.2rem;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    
+    .badges {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .badge {
+      background: rgba(255,255,255,0.2);
+      color: white;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+    }
+    
+    /* ===== КАРТОЧКИ ===== */
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+    }
+    
+    .card h2 {
+      color: var(--primary);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--light);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .card h3 {      color: var(--dark);
+      margin: 20px 0 12px;
+    }
+    
+    /* ===== СПИСОК ФИЧ ===== */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+    
+    .feature {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px;
+      background: var(--light);
+      border-radius: 10px;
+    }
+    
+    .feature-icon {
+      font-size: 1.5rem;
+      min-width: 28px;
+    }
+    
+    /* ===== КОД ===== */
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 16px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-family: 'Fira Code', 'Consolas', monospace;
+      font-size: 0.9rem;
+      margin: 12px 0;
+      position: relative;
+    }
+    
+    code {
+      font-family: 'Fira Code', 'Consolas', monospace;
+      background: var(--light);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.95em;
+    }
+    
+    pre code {
+      background: none;
+      padding: 0;    }
+    
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: rgba(255,255,255,0.1);
+      color: white;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    
+    .copy-btn:hover { opacity: 1; }
+    .copy-btn.copied { background: var(--accent); }
+    
+    /* ===== ТАБЫ ДЛЯ КОМАНД ===== */
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+      padding: 8px 16px;
+      border: none;
+      background: var(--light);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn.active {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    /* ===== КНОПКИ ===== */
+    .btn {
+      display: inline-flex;
+      align-items: center;      gap: 8px;
+      background: var(--accent);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 10px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: transform 0.2s, box-shadow 0.2s;
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4);
+    }
+    
+    .btn-outline {
+      background: transparent;
+      border: 2px solid white;
+      color: white;
+    }
+    
+    .btn-outline:hover {
+      background: white;
+      color: var(--primary);
+    }
+    
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+    
+    /* ===== ТАБЛИЦА ===== */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    
+    th, td {
+      padding: 12px 16px;
+      text-align: left;      border-bottom: 1px solid var(--light);
+    }
+    
+    th {
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+    }
+    
+    tr:hover { background: var(--light); }
+    
+    /* ===== ПРЕДУПРЕЖДЕНИЯ ===== */
+    .alert {
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin: 16px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    
+    .alert-warning {
+      background: #fff3cd;
+      border-left: 4px solid var(--warning);
+      color: #856404;
+    }
+    
+    .alert-info {
+      background: #d1ecf1;
+      border-left: 4px solid #17a2b8;
+      color: #0c5460;
+    }
+    
+    .alert-icon { font-size: 1.3rem; }
+    
+    /* ===== FOOTER ===== */
+    footer {
+      text-align: center;
+      padding: 40px 20px;
+      color: white;
+      opacity: 0.9;
+    }
+    
+    footer a {
+      color: white;
+      text-decoration: none;
+      border-bottom: 1px dashed;
+    }
+    
+    /* ===== АНИМАЦИИ ===== */    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .card { animation: fadeIn 0.4s ease-out forwards; }
+    .card:nth-child(2) { animation-delay: 0.1s; }
+    .card:nth-child(3) { animation-delay: 0.2s; }
+    .card:nth-child(4) { animation-delay: 0.3s; }
+    
+    /* ===== МОБИЛЬНАЯ АДАПТАЦИЯ ===== */
+    @media (max-width: 768px) {
+      header h1 { font-size: 1.8rem; }
+      header p { font-size: 1rem; }
+      .card { padding: 20px; }
+      pre { font-size: 0.85rem; padding: 12px; }
+      .btn { padding: 10px 20px; font-size: 0.95rem; }
+      table { font-size: 0.9rem; }
+      th, td { padding: 10px 12px; }
+    }
+    
+    /* ===== СИНТАКСИС КОДА (упрощённый) ===== */
+    .kw { color: #569cd6; } /* keyword */
+    .str { color: #ce9178; } /* string */
+    .num { color: #b5cea8; } /* number */
+    .func { color: #dcdcaa; } /* function */
+    .comment { color: #6a9955; } /* comment */
+    .class { color: #4ec9b0; } /* class */
+  </style>
+</head>
+<body>
+
+  <!-- ШАПКА -->
+  <header>
+    <div class="container">
+      <h1>🔒 HTTPS SNI Server</h1>
+      <p>Асинхронный сервер на Python с поддержкой SNI для обслуживания нескольких доменов с разными SSL-сертификатами на одном порту</p>
+      
+      <div class="badges">
+        <span class="badge">🐍 Python 3.7+</span>
+        <span class="badge">🔐 SNI Support</span>
+        <span class="badge">⚡ Asyncio</span>
+        <span class="badge">📱 Termux Ready</span>
+        <span class="badge">🆓 MIT License</span>
+      </div>
+      
+      <div class="btn-group">
+        <a href="#quickstart" class="btn">🚀 Быстрый старт</a>
+        <a href="https://github.com/ваш-логин/https-sni-server" target="_blank" class="btn btn-outline">⭐ GitHub</a>
+      </div>    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- ФИЧИ -->
+    <section class="card">
+      <h2>✨ Особенности</h2>
+      <div class="features">
+        <div class="feature">
+          <span class="feature-icon">🔐</span>
+          <div><strong>SNI Support</strong><br>Разные сертификаты для разных доменов на одном порту</div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">⚡</span>
+          <div><strong>Asyncio</strong><br>Асинхронная обработка для высокой производительности</div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📱</span>
+          <div><strong>Termux</strong><br>Работает на Android без root-прав (порт 8443)</div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">🔧</span>
+          <div><strong>Auto-load</strong><br>Автоматическая загрузка сертификатов из папки</div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📄</span>
+          <div><strong>HTML Response</strong><br>Красивая адаптивная страница с именем домена</div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">📝</span>
+          <div><strong>Logging</strong><br>Логирование всех подключений с указанием SNI</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- БЫСТРЫЙ СТАРТ -->
+    <section class="card" id="quickstart">
+      <h2>🚀 Быстрый старт</h2>
+      
+      <h3>1. Клонировать репозиторий</h3>
+      <pre><button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button><code><span class="kw">git</span> clone https://github.com/ваш-логин/https-sni-server.git
+<span class="kw">cd</span> https-sni-server</code></pre>
+      
+      <h3>2. Сгенерировать сертификаты</h3>
+      <pre><button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button><code><span class="kw">chmod</span> +x setup.sh
+./setup.sh</code></pre>
+      
+      <h3>3. Запустить сервер</h3>
+      <pre><button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button><code><span class="comment"># Порт 8443 (не требует root)</span>python3 server.py
+
+<span class="comment"># Или порт 443 (требует прав на Linux)</span>
+<span class="comment"># sudo setcap 'cap_net_bind_service=+ep' $(which python3)</span>
+<span class="comment"># python3 server.py  # с PORT = 443 в коде</span></code></pre>
+      
+      <h3>4. Протестировать</h3>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="openTab(event, 'curl')">cURL</button>
+        <button class="tab-btn" onclick="openTab(event, 'browser')">Браузер</button>
+        <button class="tab-btn" onclick="openTab(event, 'termux')">Termux</button>
+      </div>
+      
+      <div id="curl" class="tab-content active">
+        <pre><button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button><code><span class="comment"># Тест site1.local</span>
+curl -k --resolve site1.local:8443:127.0.0.1 https://site1.local:8443/
+
+<span class="comment"># Тест site2.local</span>
+curl -k --resolve site2.local:8443:127.0.0.1 https://site2.local:8443/
+
+<span class="comment"># Проверка сертификата</span>
+curl -kv --resolve site1.local:8443:127.0.0.1 https://site1.local:8443/ 2>&1 | grep <span class="str">"subject:"</span></code></pre>
+      </div>
+      
+      <div id="browser" class="tab-content">
+        <pre><code><span class="comment"># Добавьте в /etc/hosts:</span>
+127.0.0.1 site1.local site2.local
+
+<span class="comment"># Затем откройте в браузере:</span>
+https://site1.local:8443/
+https://site2.local:8443/
+
+<span class="comment">⚠️ Примите предупреждение о самоподписанном сертификате</span></code></pre>
+      </div>
+      
+      <div id="termux" class="tab-content">
+        <pre><code><span class="comment"># В Termux:</span>
+pkg install python openssl openssh
+
+<span class="comment"># Запустить сервер:</span>
+python3 server.py
+
+<span class="comment"># Доступ из локальной сети:</span>
+ifconfig  <span class="comment"># узнать IP телефона</span>
+<span class="comment"># С компьютера: https://192.168.1.XX:8443/</span>
+
+<span class="comment"># Доступ из интернета:</span>
+ssh -R 80:localhost:8443 localhost.run</code></pre>
+      </div>
+    </section>
+    <!-- ДОБАВИТЬ ДОМЕН -->
+    <section class="card">
+      <h2>➕ Добавить свой домен</h2>
+      
+      <pre><button class="copy-btn" onclick="copyCode(this)">📋 Копировать</button><code><span class="comment"># Создать самоподписанный сертификат</span>
+openssl req -x509 -newkey rsa:2048 \
+    -keyout certs/mydomain.local.key \
+    -out certs/mydomain.local.crt \
+    -days 365 -nodes \
+    -subj <span class="str">"/CN=mydomain.local"</span>
+
+<span class="comment"># Сервер подхватит автоматически!</span>
+<span class="comment"># Тест:</span>
+curl -k --resolve mydomain.local:8443:127.0.0.1 https://mydomain.local:8443/</code></pre>
+      
+      <div class="alert alert-info">
+        <span class="alert-icon">💡</span>
+        <div>
+          <strong>Совет:</strong> Для продакшена используйте реальные сертификаты от Let's Encrypt:
+          <pre style="margin-top:10px"><code>certbot certonly --standalone -d example.com
+cp /etc/letsencrypt/live/example.com/fullchain.pem certs/example.com.crt
+cp /etc/letsencrypt/live/example.com/privkey.pem certs/example.com.key</code></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- СТРУКТУРА -->
+    <section class="card">
+      <h2>📁 Структура проекта</h2>
+      <pre><code>https-sni-server/
+├── 📄 index.html          # Эта страница
+├── 🐍 server.py           # Основной сервер
+├── 🔐 setup.sh            # Генератор сертификатов
+├── 📦 requirements.txt    # Зависимости (пустой)
+├── 🔇 .gitignore          # Исключения для git
+├── 📜 LICENSE             # MIT License
+├── 📖 README.md           # Документация
+├── 📁 certs/              # Сертификаты
+│   ├── *.crt              # Публичные ключи ✅
+│   └── *.key              # Приватные ключи 🔐 НЕ КОММИТИТЬ!
+└── 📁 examples/
+    ├── 🧪 test_curl.sh    # Скрипт тестирования
+    └── ➕ add_domain.sh    # Добавление домена</code></pre>
+    </section>
+
+    <!-- БЕЗОПАСНОСТЬ -->
+    <section class="card">
+      <h2>⚠️ Безопасность</h2>
+            <div class="alert alert-warning">
+        <span class="alert-icon">🔐</span>
+        <div>
+          <strong>Никогда не коммитьте приватные ключи (*.key) в публичный репозиторий!</strong><br>
+          Они уже исключены через <code>.gitignore</code>, но будьте внимательны.
+        </div>
+      </div>
+      
+      <table>
+        <thead>
+          <tr>
+            <th>Рекомендация</th>
+            <th>Описание</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>*.key</code> в .gitignore</td>
+            <td>Приватные ключи не попадут в репозиторий</td>
+          </tr>
+          <tr>
+            <td>Let's Encrypt</td>
+            <td>Используйте доверенные сертификаты для продакшена</td>
+          </tr>
+          <tr>
+            <td>Rate limiting</td>
+            <td>Добавьте ограничение запросов при публичном доступе</td>
+          </tr>
+          <tr>
+            <td>Логирование</td>
+            <td>Включите логирование для мониторинга атак</td>
+          </tr>
+          <tr>
+            <td>Порт >1024</td>
+            <td>Используйте порт 8443 для работы без root</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- API -->
+    <section class="card">
+      <h2>🔧 Расширение</h2>
+      
+      <h3>Изменить HTML-ответ</h3>
+      <p>Откройте <code>server.py</code> и найдите функцию <code>handle_client</code>:</p>
+      <pre><code><span class="kw">async def</span> <span class="func">handle_client</span>(reader, writer):
+    <span class="comment"># ... чтение запроса ...</span>
+    
+    <span class="comment"># Ваша кастомная логика:</span>    <span class="kw">if</span> path == <span class="str">"/api/status"</span>:
+        data = {<span class="str">"status"</span>: <span class="str">"ok"</span>, <span class="str">"domain"</span>: domain}
+        body = json.dumps(data).encode()
+        <span class="comment"># отправить JSON ответ ...</span></code></pre>
+      
+      <h3>Добавить маршруты</h3>
+      <pre><code><span class="comment"># Пример редиректа:</span>
+<span class="kw">if</span> domain == <span class="str">"old.local"</span>:
+    html = <span class="str">'<meta http-equiv="refresh" content="0;url=https://new.com"'</span>
+    
+<span class="comment"># Пример JSON API:</span>
+<span class="kw">if</span> path.startswith(<span class="str">"/api/"</span>):
+    writer.write(<span class="str">b"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n"</span>)
+    writer.write(json.dumps({<span class="str">"hello"</span>: <span class="str">"world"</span>}).encode())</code></pre>
+    </section>
+
+    <!-- ПОДДЕРЖКА -->
+    <section class="card">
+      <h2>🤝 Поддержка</h2>
+      <ul style="margin-left: 20px; margin-top: 12px;">
+        <li>🐛 <strong>Нашли баг?</strong> <a href="https://github.com/ваш-логин/https-sni-server/issues" target="_blank">Откройте Issue</a></li>
+        <li>💡 <strong>Есть идея?</strong> <a href="https://github.com/ваш-логин/https-sni-server/discussions" target="_blank">Предложите в Discussions</a></li>
+        <li>🔧 <strong>Хотите помочь?</strong> <a href="https://github.com/ваш-логин/https-sni-server/pulls" target="_blank">Откройте Pull Request</a></li>
+        <li>⭐ <strong>Нравится проект?</strong> Поставьте звезду на GitHub!</li>
+      </ul>
+    </section>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="container">
+      <p>
+        Made with ❤️ and Python<br>
+        <a href="https://github.com/ваш-логин/https-sni-server" target="_blank">github.com/ваш-логин/https-sni-server</a>
+      </p>
+      <p style="margin-top: 10px; font-size: 0.9rem; opacity: 0.8;">
+        © 2026 MIT License • Работает на любом устройстве с Python 3.7+
+      </p>
+    </div>
+  </footer>
+
+  <!-- СКРИПТЫ -->
+  <script>
+    // Копирование кода
+    function copyCode(btn) {
+      const code = btn.nextElementSibling.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.textContent = '✅ Скопировано!';
+        btn.classList.add('copied');        setTimeout(() => {
+          btn.textContent = '📋 Копировать';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+    
+    // Переключение табов
+    function openTab(evt, tabName) {
+      // Скрыть все табы
+      document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      // Деактивировать все кнопки
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      // Показать выбранный таб
+      document.getElementById(tabName).classList.add('active');
+      // Активировать кнопку
+      evt.currentTarget.classList.add('active');
+    }
+    
+    // Плавная прокрутка для якорей
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function(e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+  </script>
+
+</body>
+</html>
